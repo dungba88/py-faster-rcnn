@@ -37,15 +37,12 @@ NETS = {'vgg16': ('VGG16',
                   'ZF_faster_rcnn_final.caffemodel')}
 
 
-def vis_detections(im, class_name, dets, thresh=0.5):
+def vis_detections(im, ax, class_name, dets, thresh=0.5):
     """Draw detected bounding boxes."""
     inds = np.where(dets[:, -1] >= thresh)[0]
     if len(inds) == 0:
         return
 
-    im = im[:, :, (2, 1, 0)]
-    fig, ax = plt.subplots(figsize=(12, 12))
-    ax.imshow(im, aspect='equal')
     for i in inds:
         bbox = dets[i, :4]
         score = dets[i, -1]
@@ -84,18 +81,22 @@ def demo(net, image_name):
     print ('Detection took {:.3f}s for '
            '{:d} object proposals'.format(timer.total_time, boxes.shape[0]))
 
+    im = im[:, :, (2, 1, 0)]
+    fig, ax = plt.subplots(figsize=(12, 12))
+    ax.imshow(im, aspect='equal')
+
     # Visualize detections for each class
     CONF_THRESH = 0.8
     NMS_THRESH = 0.3
-    for cls_ind, cls in enumerate(CLASSES[1:]):
-        cls_ind += 1 # because we skipped background
+    for cls_ind in range(1, max(len(scores[0]), 1)):
+        cls = CLASSES[cls_ind]
         cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
         cls_scores = scores[:, cls_ind]
         dets = np.hstack((cls_boxes,
                           cls_scores[:, np.newaxis])).astype(np.float32)
         keep = nms(dets, NMS_THRESH)
         dets = dets[keep, :]
-        vis_detections(im, cls, dets, thresh=CONF_THRESH)
+        vis_detections(im, ax, cls, dets, thresh=CONF_THRESH)
 
 def parse_args():
     """Parse input arguments."""
@@ -118,7 +119,7 @@ if __name__ == '__main__':
     args = parse_args()
 
     prototxt = os.path.join(cfg.MODELS_DIR, NETS[args.demo_net][0],
-                            'faster_rcnn_end2end', 'test.prototxt')
+                            'faster_rcnn_alt_opt', 'faster_rcnn_test.pt')
     caffemodel = os.path.join(cfg.DATA_DIR, 'faster_rcnn_models',
                               NETS[args.demo_net][1])
 
@@ -130,7 +131,7 @@ if __name__ == '__main__':
         caffe.set_mode_cpu()
     else:
         caffe.set_mode_gpu()
-        caffe.set_device(args.gpu_id)
+        caffe.set_device(0)
         cfg.GPU_ID = args.gpu_id
     net = caffe.Net(prototxt, caffemodel, caffe.TEST)
 
